@@ -17,4 +17,4 @@ go run .
 
 ## Docs
 
-[a relative link](docs/docs.pdf)
+[Docs](docs/docs.pdf)
