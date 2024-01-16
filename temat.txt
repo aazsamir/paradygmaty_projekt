@@ -1,0 +1,1 @@
+Język Golang, SQL i Prolog. Optymalizacja zapytań SQL za pomocą Prologa.
