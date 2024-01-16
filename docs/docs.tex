@@ -1,0 +1,212 @@
+\documentclass[12pt,a4paper]{article}
+
+% Pakiety
+\usepackage[utf8]{inputenc} 
+\usepackage{amsmath, amsfonts, amssymb, polski, indentfirst, graphicx, enumerate}
+\usepackage[colorlinks=true, allcolors=blue]{hyperref}
+\usepackage{pgfplots}
+
+% Pakiety do formatowania kodu
+\usepackage{minted}
+
+% Dane autora
+\title{Języki i paradygmaty programowania\\Optymalizacja zapytań za pomocą języka Prolog}
+\author{Samir Al-Azazi}
+\date{\vspace{-5ex}} % omijamy datę w tytule i usuwamy margines
+\newcommand{\studentid}{w66045}
+
+% Strona tytułowa
+\begin{document}
+\maketitle
+\centerline{\studentid}
+\begin{figure}[!h]
+    \centering
+    \includegraphics{./images/wsiz-logo}
+\end{figure}
+\centerline{\textbf{Wyższa Szkoła Informatyki i Zarządzania}}
+\centerline{\textbf{Kolegium Informatyki}}
+\vspace*{\fill}
+\centerline{\textbf{Rzeszów \today}} % data na dole strony
+\thispagestyle{empty} % ukrywa numerację dla strony tytułowej
+\clearpage
+
+% Spis treści
+\tableofcontents
+\pagenumbering{arabic} % przywraca numerację stron, liczy od spisu treści
+\clearpage
+
+\section{Wstęp}
+
+Język Prolog\footnote{\href{https://pl.wikipedia.org/wiki/Prolog\_(j\%C4\%99zyk\_programowania)}{https://pl.wikipedia.org/wiki/Prolog\_(j\%C4\%99zyk\_programowania)}} pozwala w prosty sposób rozwiązywać problemy związane z logiką. Pozwala również na wydajne działania na dużych zbiorach danych.\\
+W tym projekcie, wykorzystamy język Prolog do optymalizacji zapytań do bazy danych.\\
+W tym celu, wykorzystamy SQLite\footnote{\href{https://pl.wikipedia.org/wiki/SQLite}{https://pl.wikipedia.org/wiki/SQLite}} i użyjemy bazy wiedzy Prolog do zapisania danych w postaci cache\footnote{\href{https://pl.wikipedia.org/wiki/Pami\%C4\%99\%C4\%87\_podr\%C4\%99czna}{https://pl.wikipedia.org/wiki/Pami\%C4\%99\%C4\%87\_podr\%C4\%99czna}}. Pozwoli to na uniknięcie wykonywania dodatkowych zapytań do bazy danych, co jest częstym problemem w aplikacjach webowych z mechanizmami mapowania obiektowo-relacyjnego (ORM\footnote{\href{https://pl.wikipedia.org/wiki/Mapowanie\_obiektowo-relacyjne}{https://pl.wikipedia.org/wiki/Mapowanie\_obiektowo-relacyjne}}). 
+
+\section{Implementacja}
+
+\subsection{Aplikacja serwerowa}
+
+Aplikacja serwerowa została napisana w języku Golang\footnote{\href{https://go.dev/}{https://go.dev/}}, w oparciu o narzędzia biblioteki standardowej.\\
+Za pomocą interfejsu HTTP, aplikacja wystawia punkty końcowe (ang. endpoints\footnote{\href{https://en.wikipedia.org/wiki/Endpoint\_interface}{https://en.wikipedia.org/wiki/Endpoint\_interface}}) do komunikacji REST\footnote{\href{https://pl.wikipedia.org/wiki/Representational\_state\_transfer}{https://pl.wikipedia.org/wiki/Representational\_state\_transfer}}.\\:
+
+\begin{itemize}
+    \item \textbf{GET /api/users}
+    \item \textbf{POST /api/users?name=\{name\}}
+    \item \textbf{POST /tags?user\_id=\{user\_id\}\&name=\{name\}}
+    \item \textbf{DELETE /tags?user\_id=\{user\_id\}}
+\end{itemize}
+
+Za ich pomocą użytkownik może pobrać użytkowników, wraz z przypisanymi do niego tagami, dodać nowego użytkownika, dodać tag do użytkownika oraz usunąć wszystkie tagi użytkownika.\\
+
+Zapytania do bazy danych zostały sztucznie opóźnione, by zasymulować opóźnienia w komunikacji sieciowej, używając wzorca projektowego \textbf{Decorator}\footnote{\href{https://refactoring.guru/design-patterns/decorator}{https://refactoring.guru/design-patterns/decorator}}.\\
+
+\subsection{Implementacja Prolog}
+
+Został przygotowany program w języku Prolog, w pliku \textbf{curator.pl}.
+\begin{minted}[linenos]{prolog}
+:- set_prolog_flag(verbose, silent).
+:- initialization main.
+head([H|_], H).
+main :-
+    current_prolog_flag(argv, Argv),
+    head(Argv, Who),
+    atom_number(Who, WhoNum),
+    related(WhoNum, X),
+    format('~w', X),
+    halt.
+main :-
+    format('0'),
+    halt.
+\end{minted}
+
+\clearpage
+Wyłączamy wypisywanie dodatkowych informacji po interpretacji programu.
+\begin{minted}[linenos, firstnumber=1]{prolog}
+    :- set_prolog_flag(verbose, silent).
+\end{minted}
+
+Oznaczamy predykat \textbf{main} jako punkt wejścia programu.
+\begin{minted}[linenos, firstnumber=2]{prolog}
+    :- initialization main.
+\end{minted}
+
+Definiujemy predykat \textbf{head}, który zwraca pierwszy element listy.
+\begin{minted}[linenos, firstnumber=3]{prolog}
+    head([H|_], H).
+\end{minted}
+
+Definiujemy predykat \textbf{main}, który jest wywoływany przy uruchomieniu programu.
+\begin{minted}[linenos, firstnumber=4]{prolog}
+    main :-
+\end{minted}
+
+Pobieramy listę argumentów wywołania programu.
+\begin{minted}[linenos, firstnumber=4]{prolog}
+    current_prolog_flag(argv, Argv),
+\end{minted}
+
+Pobieramy pierwszy argument, używając utworzonego wcześniej predykatu \textbf{head}.
+\begin{minted}[linenos, firstnumber=4]{prolog}
+    head(Argv, Who),
+\end{minted}
+
+Konwertujemy argument na atom liczbowy.
+\begin{minted}[linenos, firstnumber=4]{prolog}
+    atom_number(Who, WhoNum),
+\end{minted}
+
+Zapisujemy wynik zapytania \textbf{related} do zmiennej \textbf{X}.
+\begin{minted}[linenos, firstnumber=4]{prolog}
+    related(WhoNum, X),
+\end{minted}
+
+Wypisujemy wynik na wyjście standardowe.
+\begin{minted}[linenos, firstnumber=4]{prolog}
+    format('~w', X),
+\end{minted}
+
+I kończymy działanie programu.
+\begin{minted}[linenos, firstnumber=4]{prolog}
+    halt.
+\end{minted}
+
+Jeśli którykolwiek z powyższych predykatów nie został spełniony, program przechodzi do tego etapu.
+\begin{minted}[linenos, firstnumber=4]{prolog}
+    main :-
+\end{minted}
+
+Wypisujemy 0 na wyjście standardowe.
+\begin{minted}[linenos, firstnumber=4]{prolog}
+    format('0'),
+\end{minted}
+
+I kończymy działanie programu.
+\begin{minted}[linenos, firstnumber=4]{prolog}
+    halt.
+\end{minted}
+
+W momencie gdy dodamy nowy TAG do użytkownika, do bazy danych zostanie dodana nowa informacja.
+
+\begin{minted}[]{prolog}
+    related(1,1)
+\end{minted}
+
+Informuje o tym, że użytkownik o ID 1 jest w relacji do tagów i aplikacja powinna odpytać o nie bazę danych.\\
+
+Możemy sprawdzić działanie za pomocą terminala, wykonując polecenie
+\begin{minted}{bash}
+    swipl curator.pl 1
+\end{minted}
+
+W ten sam sposób, program jest wywołany z aplikacji serwerowej, gdzie 1 to ID użytkownika.
+
+
+\clearpage
+\section{Pomiary}
+
+\subsection{Natywne zapytanie SQL}
+
+W bazie danych znajduje się 4 użytkowników.
+
+\begin{minted}{json}
+    [
+        {
+            "ID": 1,
+            "Name": "John",
+            "Tags": null
+        },
+        {
+            "ID": 2,
+            "Name": "John",
+            "Tags": null
+        },
+        {
+            "ID": 3,
+            "Name": "John",
+            "Tags": null
+        },
+        {
+            "ID": 4,
+            "Name": "John",
+            "Tags": null
+        }
+    ]
+\end{minted}
+
+Czas pobrania ich za pomocą zapytania \textbf{GET /api/users} wynosi 6 sekund.\\
+
+\subsection{Zapytania wspomagane przez Prolog}
+
+Po dodaniu dekoracji Prolog do zapytania, czas pobrania 4 użytkowników wynosi 3 sekundy.
+
+\clearpage
+\section{Wnioski}
+
+Zastosowanie języka Prolog do optymalizacji zapytań do bazy danych pozwala na znaczne przyspieszenie działania aplikacji przy dużych nakładach czasowych na mapowanie obiektowo-relacyjne.\\
+
+Wadą takiego rozwiązania jest konieczność utrzymywania dodatkowej bazy wiedzy, która musi być aktualizowana w momencie zmian w bazie danych i może powodować problemy z synchronizacją z powodu dwóch źródeł prawdy.\\
+
+Można minimalizować te problemy poprzez zastosowanie mechanizmów automatycznego czyszczenia bazy wiedzy co dany interwał czasowy, lub w momencie wykrycia zmian w bazie danych.\\
+
+Zbudowanie generalnego mechanizmu, który można zintegrować z różnymi narzędziami może przynieść znaczne korzyści, gdzie występuje problem N+1 \footnote{\href{https://stackoverflow.com/questions/97197/what-is-the-n1-selects-problem-in-orm-object-relational-mapping}{https://stackoverflow.com/questions/97197/what-is-the-n1-selects-problem-in-orm-object-relational-mapping}}.
+
+\end{document}
